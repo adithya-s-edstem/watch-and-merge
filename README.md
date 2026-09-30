@@ -23,7 +23,7 @@ Watches are saved to `watches.json`, so they survive restarts. The server only l
 npm test
 ```
 
-Uses Node's built-in test runner with a fake `gh`, so no GitHub access is needed. CI runs the same on Node 22.
+Uses Node's built-in test runner with a fake `gh`, so no GitHub access is needed. CI runs the same on Node 24.
 
 ## Single PR from the shell
 

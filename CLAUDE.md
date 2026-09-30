@@ -22,7 +22,7 @@ The project needs Node 18+ and has no npm dependencies, no build step and no lin
 
 ## Tests and CI
 
-Tests use `node:test` and never touch GitHub: they put a fake `gh` script on `PATH`. `test/api.test.js` drives the server over HTTP (imported via `require('../server.js')`, which only listens when run directly; it exports `server`, `parsePr`, `tick`). `DATA_FILE` overrides the `watches.json` path, so tests must set it before requiring the server. `test/merge-script.test.js` runs the shell script. `.github/workflows/ci.yml` runs `npm test` on Node 22 plus `node --check`, `bash -n` and ShellCheck.
+Tests use `node:test` and never touch GitHub: they put a fake `gh` script on `PATH`. `test/api.test.js` drives the server over HTTP (imported via `require('../server.js')`, which only listens when run directly; it exports `server`, `parsePr`, `tick`). `DATA_FILE` overrides the `watches.json` path, so tests must set it before requiring the server. `test/merge-script.test.js` runs the shell script. `.github/workflows/ci.yml` runs `npm test` on Node 24 plus `node --check`, `bash -n` and ShellCheck.
 
 ## Architecture (server.js)
 
