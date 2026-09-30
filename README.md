@@ -9,7 +9,7 @@ npm start            # http://localhost:3000
 PORT=4000 INTERVAL=15 npm start
 ```
 
-Paste one or more PR URLs (`https://github.com/owner/repo/pull/123` or `owner/repo#123`), pick a merge method, and click **Watch**. Every `INTERVAL` seconds (default 10) each PR is checked with `gh`:
+Paste one or more PR URLs (`https://github.com/owner/repo/pull/123` or `owner/repo#123`), pick a merge method, and click **Start watching**. Every `INTERVAL` seconds (default 10; change it at runtime with **Check every** in the header) each PR is checked with `gh`:
 
 - approved and not a draft → merged (retried each tick if checks or conflicts block it)
 - merged or closed → watching stops

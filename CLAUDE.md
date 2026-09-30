@@ -27,7 +27,7 @@ Tests use `node:test` and never touch GitHub: they put a fake `gh` script on `PA
 ## Architecture (server.js)
 
 - **State**: an in-memory `watches` array, written to `watches.json` (gitignored) by `save()` after every mutation and every check, and reloaded at startup. On load, `checking` is reset to false. `publicView()` strips internal fields before they go out in API responses.
-- **Polling**: `tick()` runs every `INTERVAL` seconds. It checks the watches **one at a time**, skipping any that are paused, `merged`/`closed`, or removed mid-tick. The `ticking` flag prevents overlapping ticks.
+- **Polling**: `tick()` runs every `interval` seconds. `INTERVAL` sets it at startup, and `PUT /api/settings` changes it at runtime via `startPolling()` (not persisted, so a restart goes back to `INTERVAL`). It checks the watches **one at a time**, skipping any that are paused, `merged`/`closed`, or removed mid-tick. The `ticking` flag prevents overlapping ticks.
 - **No double merges**: `check(w)` puts concurrent checks of the same watch behind a single in-flight promise in the `inFlight` map. This covers the tick, the manual `/check` endpoint, resume, and newly added watches. Always call `check()`, never `runCheck()` directly.
 - **Status lifecycle** (`w.status`): `pending` → `waiting` / `approved-waiting` (approved, but the merge was blocked by checks or conflicts, so it retries each tick) / `error` (the `gh` call failed, so it retries) → the terminal states `merged` / `closed`. A PR merges when `reviewDecision === 'APPROVED'` and it is not a draft.
 - **Per-watch log**: `log(w, msg)` sets `lastMessage`, appends to `w.log` (capped at `LOG_LIMIT` = 50), and echoes to stdout. The repeated "Not ready" message is only logged when it changes.
@@ -35,6 +35,7 @@ Tests use `node:test` and never touch GitHub: they put a fake `gh` script on `PA
   - `GET /api/watches` returns `{ interval, watches }`.
   - `POST /api/watches` takes `{ url, mergeMethod: merge|squash|rebase, deleteBranch }`. `url` can hold several PRs separated by whitespace, commas or newlines, each given as a `github.com/.../pull/N` URL or as `owner/repo#N`. Duplicates (repo compared case-insensitively) are skipped.
   - `DELETE /api/watches/:id`, and `POST /api/watches/:id/{pause|resume|check}`.
+  - `GET /api/settings` returns `{ interval }`. `PUT /api/settings` takes `{ interval }`, a whole number of seconds from 5 to 3600.
 - **Security**: the server binds to `127.0.0.1` only, because anyone who can reach it can merge PRs with the user's `gh` credentials. Don't change this.
 
 ## Frontend

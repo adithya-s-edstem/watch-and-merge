@@ -10,7 +10,10 @@ const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 
 const PORT = Number(process.env.PORT) || 3000;
-const INTERVAL = Number(process.env.INTERVAL) || 10;
+const MIN_INTERVAL = 5;
+const MAX_INTERVAL = 3600;
+// Poll period in seconds. INTERVAL sets it at startup; PUT /api/settings changes it until the next restart.
+let interval = Number(process.env.INTERVAL) || 10;
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'watches.json');
 const INDEX_FILE = path.join(__dirname, 'public', 'index.html');
 const METHODS = ['merge', 'squash', 'rebase'];
@@ -120,6 +123,24 @@ async function runCheck(w) {
   }
 }
 
+let timer = null;
+function startPolling() {
+  clearInterval(timer);
+  timer = setInterval(tick, interval * 1000);
+}
+
+function updateSettings(body) {
+  const n = body.interval;
+  if (!Number.isInteger(n) || n < MIN_INTERVAL || n > MAX_INTERVAL) {
+    throw new HttpError(400, `interval must be a whole number of seconds from ${MIN_INTERVAL} to ${MAX_INTERVAL}`);
+  }
+  interval = n;
+  // Only reschedule a running server; a required-in test process never started the timer
+  if (timer) startPolling();
+  console.log(`Checking every ${interval}s.`);
+  return { interval };
+}
+
 let ticking = false;
 async function tick() {
   if (ticking) return;
@@ -218,8 +239,13 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/watches') {
-      if (req.method === 'GET') return send(res, 200, { interval: INTERVAL, watches: watches.map(publicView) });
+      if (req.method === 'GET') return send(res, 200, { interval, watches: watches.map(publicView) });
       if (req.method === 'POST') return send(res, 201, addWatches(await readJson(req)));
+    }
+
+    if (pathname === '/api/settings') {
+      if (req.method === 'GET') return send(res, 200, { interval });
+      if (req.method === 'PUT') return send(res, 200, updateSettings(await readJson(req)));
     }
 
     const m = pathname.match(/^\/api\/watches\/([\w-]+)(?:\/(pause|resume|check))?$/);
@@ -262,9 +288,9 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   // Localhost only: the API merges PRs with your gh credentials
   server.listen(PORT, '127.0.0.1', () => {
-    console.log(`Watch & merge UI on http://localhost:${PORT} (checking every ${INTERVAL}s)`);
+    console.log(`Watch & merge UI on http://localhost:${PORT} (checking every ${interval}s)`);
     tick();
-    setInterval(tick, INTERVAL * 1000);
+    startPolling();
   });
 }
 
