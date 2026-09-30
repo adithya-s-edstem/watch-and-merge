@@ -124,6 +124,28 @@ describe('static and listing', () => {
   });
 });
 
+describe('settings', () => {
+  it('changes the poll interval and reports it in the listing', async () => {
+    const prev = (await api('GET', '/api/settings')).body.interval;
+    try {
+      const res = await api('PUT', '/api/settings', { interval: 30 });
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, { interval: 30 });
+      assert.equal((await api('GET', '/api/watches')).body.interval, 30);
+    } finally {
+      await api('PUT', '/api/settings', { interval: prev });
+    }
+  });
+
+  it('rejects intervals that are out of range or not whole seconds', async () => {
+    for (const interval of [4, 3601, 7.5, '10', null]) {
+      const res = await api('PUT', '/api/settings', { interval });
+      assert.equal(res.status, 400, `interval ${JSON.stringify(interval)}`);
+      assert.match(res.body.error, /interval must be/);
+    }
+  });
+});
+
 describe('POST /api/watches validation', () => {
   it('requires a url', async () => {
     for (const body of [{}, { url: '' }, { url: '   ' }, { url: 42 }]) {
