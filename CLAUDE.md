@@ -15,9 +15,14 @@ Watches GitHub PRs across repos and merges each once it is approved. It has two 
 npm start                        # web UI on http://127.0.0.1:3000
 PORT=4000 INTERVAL=15 npm start  # INTERVAL = poll period in seconds (default 10)
 ./merge-when-approved.sh PR_NUMBER OWNER/REPO [INTERVAL_SECONDS]
+npm test                         # node --test over test/*.test.js
 ```
 
-The project needs Node 18+ and has no npm dependencies, no build step, no linter, and no tests. Keep it dependency-free: use only `node:` built-ins on the server and vanilla JS inline in `index.html`.
+The project needs Node 18+ and has no npm dependencies, no build step and no linter. Keep it dependency-free: use only `node:` built-ins on the server and vanilla JS inline in `index.html`.
+
+## Tests and CI
+
+Tests use `node:test` and never touch GitHub: they put a fake `gh` script on `PATH`. `test/api.test.js` drives the server over HTTP (imported via `require('../server.js')`, which only listens when run directly; it exports `server`, `parsePr`, `tick`). `DATA_FILE` overrides the `watches.json` path, so tests must set it before requiring the server. `test/merge-script.test.js` runs the shell script. `.github/workflows/ci.yml` runs `npm test` on Node 18/20/22 plus `node --check`, `bash -n` and ShellCheck.
 
 ## Architecture (server.js)
 

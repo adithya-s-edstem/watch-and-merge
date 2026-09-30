@@ -11,7 +11,7 @@ const { execFile } = require('node:child_process');
 
 const PORT = Number(process.env.PORT) || 3000;
 const INTERVAL = Number(process.env.INTERVAL) || 10;
-const DATA_FILE = path.join(__dirname, 'watches.json');
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'watches.json');
 const INDEX_FILE = path.join(__dirname, 'public', 'index.html');
 const METHODS = ['merge', 'squash', 'rebase'];
 const DONE = ['merged', 'closed'];
@@ -259,9 +259,13 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// Localhost only: the API merges PRs with your gh credentials
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Watch & merge UI on http://localhost:${PORT} (checking every ${INTERVAL}s)`);
-  tick();
-  setInterval(tick, INTERVAL * 1000);
-});
+if (require.main === module) {
+  // Localhost only: the API merges PRs with your gh credentials
+  server.listen(PORT, '127.0.0.1', () => {
+    console.log(`Watch & merge UI on http://localhost:${PORT} (checking every ${INTERVAL}s)`);
+    tick();
+    setInterval(tick, INTERVAL * 1000);
+  });
+}
+
+module.exports = { server, parsePr, tick };
