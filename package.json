@@ -4,7 +4,8 @@
   "private": true,
   "description": "Web UI to watch GitHub PRs across repos and merge each once approved",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

@@ -17,6 +17,14 @@ Paste one or more PR URLs (`https://github.com/owner/repo/pull/123` or `owner/re
 
 Watches are saved to `watches.json`, so they survive restarts. The server only listens on `127.0.0.1`, because it merges with your `gh` credentials. Requires Node 18+ and an authenticated `gh` CLI; there are no npm dependencies.
 
+## Tests
+
+```sh
+npm test
+```
+
+Uses Node's built-in test runner with a fake `gh`, so no GitHub access is needed. CI runs the same on Node 24.
+
 ## Single PR from the shell
 
 ```sh
