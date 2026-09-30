@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watch &amp; Merge</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #fff; --text: #1a1d21; --muted: #5f6b7a; --border: #dde1e6;
+    --accent: #2563eb; --accent-text: #fff;
+    --waiting: #a16207; --waiting-bg: #fef3c7;
+    --approved: #1d4ed8; --approved-bg: #dbeafe;
+    --merged: #6d28d9; --merged-bg: #ede9fe;
+    --closed: #4b5563; --closed-bg: #e5e7eb;
+    --error: #b91c1c; --error-bg: #fee2e2;
+    --paused: #4b5563; --paused-bg: #f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #181b21; --text: #e6e8eb; --muted: #9aa4b2; --border: #2a2f37;
+      --accent: #3b82f6; --accent-text: #fff;
+      --waiting: #fcd34d; --waiting-bg: #3a2e0b;
+      --approved: #93c5fd; --approved-bg: #172a4d;
+      --merged: #c4b5fd; --merged-bg: #2b1f4d;
+      --closed: #cbd5e1; --closed-bg: #2a2f37;
+      --error: #fca5a5; --error-bg: #4a1717;
+      --paused: #cbd5e1; --paused-bg: #23272e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  textarea { width: 100%; min-height: 72px; resize: vertical; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); font: 13px ui-monospace, monospace; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 10px; }
+  select, button { font: inherit; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); padding: 6px 10px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  label { display: inline-flex; gap: 6px; align-items: center; }
+  .msg { margin-left: auto; font-size: 13px; }
+  .msg.err { color: var(--error); }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 24px 0 10px; }
+  .toolbar h2 { font-size: 15px; margin: 0; margin-right: auto; }
+  .list { display: grid; gap: 10px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .card-head { display: flex; gap: 10px; align-items: flex-start; }
+  .card-main { flex: 1; min-width: 0; }
+  .pr { font-weight: 600; color: var(--accent); text-decoration: none; }
+  .title { overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .last { font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .actions button { padding: 4px 9px; font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .s-pending, .s-waiting { color: var(--waiting); background: var(--waiting-bg); }
+  .s-approved-waiting { color: var(--approved); background: var(--approved-bg); }
+  .s-merged { color: var(--merged); background: var(--merged-bg); }
+  .s-closed { color: var(--closed); background: var(--closed-bg); }
+  .s-error { color: var(--error); background: var(--error-bg); }
+  .s-paused { color: var(--paused); background: var(--paused-bg); }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .log { margin: 6px 0 0; padding: 8px; background: var(--bg); border-radius: 6px; max-height: 220px; overflow: auto;
+    font: 12px/1.5 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .empty { color: var(--muted); text-align: center; padding: 28px; }
+  @media (max-width: 600px) {
+    .card-head { flex-direction: column; }
+    .actions { justify-content: flex-start; }
+    .msg { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Watch &amp; Merge</h1>
+  <p class="sub">Paste pull request URLs from any repo. Each one is merged as soon as it's approved. <span id="interval"></span></p>
+
+  <form class="panel" id="add">
+    <textarea id="urls" placeholder="https://github.com/owner/repo/pull/123&#10;owner/other-repo#45" required></textarea>
+    <div class="row">
+      <label>Merge method
+        <select id="method">
+          <option value="merge">Merge commit</option>
+          <option value="squash">Squash</option>
+          <option value="rebase">Rebase</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="delete" checked> Delete branch</label>
+      <button class="primary" type="submit">Watch</button>
+      <span class="msg" id="msg"></span>
+    </div>
+  </form>
+
+  <div class="toolbar">
+    <h2 id="count">Watched PRs</h2>
+    <button id="clear" type="button">Clear finished</button>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const openLogs = new Set();
+let known = new Map();
+let current = [];
+
+const labels = {
+  pending: 'Checking…', waiting: 'Waiting for approval', 'approved-waiting': 'Approved, can’t merge yet',
+  merged: 'Merged', closed: 'Closed', error: 'Error', paused: 'Paused',
+};
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function ago(iso) {
+  if (!iso) return 'never';
+  const s = Math.round((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  return new Date(iso).toLocaleString();
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function notifyMerged(w) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(`Merged ${w.repo}#${w.number}`, { body: w.title });
+  }
+}
+
+function render(watches) {
+  current = watches;
+  const done = watches.filter(w => w.status === 'merged' || w.status === 'closed').length;
+  $('#count').textContent = `Watched PRs (${watches.length - done} active, ${done} finished)`;
+  $('#clear').disabled = done === 0;
+
+  if (!watches.length) {
+    $('#list').innerHTML = '<div class="empty panel">Nothing watched yet. Add a PR URL above.</div>';
+    return;
+  }
+  const order = { error: 0, 'approved-waiting': 1, pending: 2, waiting: 3, merged: 4, closed: 5 };
+  const sorted = [...watches].sort((a, b) =>
+    (order[a.status] ?? 9) - (order[b.status] ?? 9) || b.addedAt.localeCompare(a.addedAt));
+
+  $('#list').innerHTML = sorted.map(w => {
+    const finished = w.status === 'merged' || w.status === 'closed';
+    const st = w.paused && !finished ? 'paused' : w.status;
+    return `
+    <div class="card" data-id="${w.id}">
+      <div class="card-head">
+        <div class="card-main">
+          <a class="pr" href="${esc(w.url)}" target="_blank" rel="noopener">${esc(w.repo)}#${w.number}</a>
+          <span class="badge s-${st}">${labels[st] || esc(st)}</span>
+          <div class="title">${esc(w.title) || '<span style="color:var(--muted)">(title not loaded yet)</span>'}</div>
+          <div class="meta">
+            <span>Review: ${esc(w.reviewDecision || 'none')}</span>
+            ${w.isDraft ? '<span>Draft</span>' : ''}
+            <span>Method: ${esc(w.mergeMethod)}${w.deleteBranch ? ' + delete branch' : ''}</span>
+            <span>Checked ${w.checking ? 'now…' : ago(w.lastChecked)}</span>
+          </div>
+          ${w.lastMessage ? `<div class="last">${esc(w.lastMessage)}</div>` : ''}
+          <details data-log="${w.id}" ${openLogs.has(w.id) ? 'open' : ''}>
+            <summary>Log (${w.log.length})</summary>
+            <div class="log">${w.log.slice().reverse().map(l =>
+              `${new Date(l.time).toLocaleTimeString()}  ${esc(l.msg)}`).join('\n')}</div>
+          </details>
+        </div>
+        <div class="actions">
+          ${finished ? '' : `
+            <button data-act="check" ${w.checking ? 'disabled' : ''}>Check now</button>
+            <button data-act="${w.paused ? 'resume' : 'pause'}">${w.paused ? 'Resume' : 'Pause'}</button>`}
+          <button data-act="remove">Remove</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function refresh() {
+  try {
+    const { interval, watches } = await api('/api/watches');
+    $('#interval').textContent = `Checks every ${interval}s.`;
+    for (const w of watches) {
+      const prev = known.get(w.id);
+      if (prev && prev !== 'merged' && w.status === 'merged') notifyMerged(w);
+      known.set(w.id, w.status);
+    }
+    render(watches);
+  } catch (err) {
+    $('#interval').textContent = `Server unreachable: ${err.message}`;
+  }
+}
+
+$('#add').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#msg');
+  msg.className = 'msg';
+  msg.textContent = 'Adding…';
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  try {
+    const r = await api('/api/watches', {
+      method: 'POST',
+      body: JSON.stringify({ url: $('#urls').value, mergeMethod: $('#method').value, deleteBranch: $('#delete').checked }),
+    });
+    msg.textContent = `Added ${r.added}${r.skipped ? `, skipped ${r.skipped} already watched` : ''}.`;
+    $('#urls').value = '';
+    refresh();
+  } catch (err) {
+    msg.className = 'msg err';
+    msg.textContent = err.message;
+  }
+});
+
+$('#list').addEventListener('click', async e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const id = btn.closest('.card').dataset.id;
+  const act = btn.dataset.act;
+  btn.disabled = true;
+  try {
+    if (act === 'remove') {
+      const w = current.find(w => w.id === id);
+      const active = w && w.status !== 'merged' && w.status !== 'closed';
+      if (active && !confirm(`Stop watching ${w.repo}#${w.number}?`)) { btn.disabled = false; return; }
+      await api(`/api/watches/${id}`, { method: 'DELETE' });
+    } else {
+      await api(`/api/watches/${id}/${act}`, { method: 'POST' });
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+  refresh();
+});
+
+$('#list').addEventListener('toggle', e => {
+  const id = e.target.dataset?.log;
+  if (!id) return;
+  e.target.open ? openLogs.add(id) : openLogs.delete(id);
+}, true);
+
+$('#clear').addEventListener('click', async () => {
+  const finished = current.filter(w => w.status === 'merged' || w.status === 'closed');
+  await Promise.all(finished.map(w => api(`/api/watches/${w.id}`, { method: 'DELETE' }).catch(() => {})));
+  refresh();
+});
+
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "watch-and-merge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web UI to watch GitHub PRs across repos and merge each once approved",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
